@@ -10,7 +10,7 @@ const root=fileURLToPath(new URL('.',import.meta.url));
 const publicRoot=join(root,'public');
 if(existsSync(join(root,'.env'))){for(const line of readFileSync(join(root,'.env'),'utf8').split(/\r?\n/)){const match=line.match(/^\s*([^#=]+?)\s*=\s*(.*)\s*$/);if(match&&!process.env[match[1]])process.env[match[1]]=match[2].replace(/^['"]|['"]$/g,'')}}
 const port=Number(process.env.PORT||4173);
-const model=process.env.GEMINI_MODEL||'gemini-3.8-flash';
+const model=process.env.GEMINI_MODEL||'gemini-2.5-flash';
 
 const matchSchema={type:'object',additionalProperties:false,properties:{interpreted_query:{type:'object',additionalProperties:false,properties:{item_type:{type:'string'},color:{type:'string'},location:{type:'string'},time:{type:'string'},other_attributes:{type:'array',items:{type:'string'}}},required:['item_type','color','location','time','other_attributes']},candidates:{type:'array',maxItems:3,items:{type:'object',additionalProperties:false,properties:{record_id:{type:'string'},match_score:{type:'integer',minimum:0,maximum:100},explanation:{type:'string'}},required:['record_id','match_score','explanation']}},follow_up_question:{type:'string'}},required:['interpreted_query','candidates','follow_up_question']};
 const questionSchema={type:'object',additionalProperties:false,properties:{question:{type:'string'}},required:['question']};
@@ -24,7 +24,7 @@ function geminiSchema(value){if(Array.isArray(value))return value.map(geminiSche
 async function ask(instructions,input,name,schema){
   if(!process.env.GEMINI_API_KEY)throw new Error('GEMINI_API_KEY is missing. Copy .env.example to .env and add your key.');
   const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const response=await fetch(endpoint,{method:'POST',headers:{'x-goog-api-key':process.env.GEMINI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:instructions}]},contents:[{role:'user',parts:[{text:input}]}],generationConfig:{responseFormat:{text:{mimeType:'application/json',schema:geminiSchema(schema)}}}})});
+  const response=await fetch(endpoint,{method:'POST',headers:{'x-goog-api-key':process.env.GEMINI_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:instructions}]},contents:[{role:'user',parts:[{text:input}]}],generationConfig:{responseMimeType:'application/json',responseJsonSchema:geminiSchema(schema)}})});
   const data=await response.json();
   if(!response.ok)throw new Error(data.error?.message||`Gemini API error (${response.status})`);
   try{return JSON.parse(extractText(data))}catch{throw new Error(`Gemini returned invalid JSON for ${name}.`)}
